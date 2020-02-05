@@ -1462,3 +1462,123 @@ fn should_execute_stored_payment_and_session_code_with_new_major_version() {
         "calling upgraded stored payment and session code should work",
     );
 }
+
+#[test]
+fn counter_proxy() {
+    use engine_shared::stored_value::StoredValue;
+    let payment_purse_amount = 100_000_000;
+
+    let store_request =
+        ExecuteRequestBuilder::standard(DEFAULT_ACCOUNT_ADDR, "counter_define.wasm", ()).build();
+
+    let mut builder = InMemoryWasmTestBuilder::default();
+    builder
+        .run_genesis(&*DEFAULT_GENESIS_CONFIG)
+        .exec(store_request)
+        .commit();
+
+    let account = match builder
+        .query(None, Key::Account(DEFAULT_ACCOUNT_ADDR), &[])
+        .expect("should query default account")
+    {
+        StoredValue::Account(account) => account,
+        _ => panic!("should get an account"),
+    };
+
+    let counter_contract_hash = account
+        .named_keys()
+        .get("counter")
+        .expect("should get counter key")
+        .as_hash()
+        .expect("should be hash");
+
+    let counter_proxy_contract_hash = account
+        .named_keys()
+        .get("counter_proxy")
+        .expect("should get counter key")
+        .as_hash()
+        .expect("should be hash");
+
+    let call_stored_1 = {
+        let deploy = DeployItemBuilder::default()
+            .with_address(DEFAULT_ACCOUNT_ADDR)
+            .with_authorization_keys(&[*DEFAULT_ACCOUNT_KEY])
+            .with_stored_session_hash(
+                counter_proxy_contract_hash.to_vec(),
+                (counter_contract_hash, "inc"),
+            )
+            .with_payment_code(
+                &format!("{}.wasm", STANDARD_PAYMENT_CONTRACT_NAME),
+                (U512::from(payment_purse_amount),),
+            )
+            .with_deploy_hash([1; 32]) // arbitrary value for the sake of the test
+            .build();
+
+        ExecuteRequestBuilder::default().push_deploy(deploy).build()
+    };
+
+    let call_stored_2 = {
+        let deploy = DeployItemBuilder::default()
+            .with_address(DEFAULT_ACCOUNT_ADDR)
+            .with_authorization_keys(&[*DEFAULT_ACCOUNT_KEY])
+            .with_stored_session_hash(
+                counter_proxy_contract_hash.to_vec(),
+                (counter_contract_hash, "inc"),
+            )
+            .with_payment_code(
+                &format!("{}.wasm", STANDARD_PAYMENT_CONTRACT_NAME),
+                (U512::from(payment_purse_amount),),
+            )
+            .with_deploy_hash([2; 32]) // arbitrary value for the sake of the test
+            .build();
+
+        ExecuteRequestBuilder::default().push_deploy(deploy).build()
+    };
+
+    // increment twice
+    builder
+        .exec(call_stored_1)
+        .expect_success()
+        .commit()
+        .expect_success()
+        .exec(call_stored_2)
+        .expect_success()
+        .commit()
+        .expect_success();
+
+    let account = match builder
+        .query(None, Key::Account(DEFAULT_ACCOUNT_ADDR), &[])
+        .expect("should query default account")
+    {
+        StoredValue::Account(account) => account,
+        _ => panic!("should get an account"),
+    };
+
+    let counter_key = account
+        .named_keys()
+        .get("counter")
+        .expect("should get counter key");
+
+    let counter_contract = match builder
+        .query(None, *counter_key, &[])
+        .expect("should query the counter contract")
+    {
+        StoredValue::Contract(contract) => contract,
+        _ => panic!("should get an contract"),
+    };
+
+    let count_key = counter_contract
+        .named_keys()
+        .get("count")
+        .expect("should get count key");
+
+    let count_value: i32 = match builder
+        .query(None, *count_key, &[])
+        .expect("should query count key")
+    {
+        StoredValue::CLValue(value) => value.into_t().unwrap(),
+        _ => panic!("should get an int32"),
+    };
+
+    assert_eq!(count_value, 2)
+}

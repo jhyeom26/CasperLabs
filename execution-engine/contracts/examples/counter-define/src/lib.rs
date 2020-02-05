@@ -5,7 +5,7 @@ extern crate alloc;
 use alloc::{collections::BTreeMap, string::String};
 
 use contract_ffi::{
-    contract_api::{runtime, storage, Error as ApiError, TURef},
+    contract_api::{runtime, storage, ContractRef, Error as ApiError, TURef},
     key::Key,
     unwrap_or_revert::UnwrapOrRevert,
     value::CLValue,
@@ -16,6 +16,8 @@ const COUNTER_EXT: &str = "counter_ext";
 const COUNTER_KEY: &str = "counter";
 const GET_METHOD: &str = "get";
 const INC_METHOD: &str = "inc";
+
+const COUNTER_PROXY_NAME: &str = "counter_proxy";
 
 enum Arg {
     MethodName = 0,
@@ -56,8 +58,7 @@ pub extern "C" fn counter_ext() {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn call() {
+fn deploy_counter() {
     let counter_local_key = storage::new_turef(0); //initialize counter
 
     //create map of references for stored contract
@@ -67,4 +68,34 @@ pub extern "C" fn call() {
 
     let pointer = storage::store_function_at_hash(COUNTER_EXT, counter_urefs);
     runtime::put_key(COUNTER_KEY, pointer.into());
+}
+
+fn deploy_proxy() {
+    // Create proxy instance.
+    let proxy_ref = storage::store_function_at_hash(COUNTER_PROXY_NAME, Default::default());
+    runtime::put_key(COUNTER_PROXY_NAME, proxy_ref.into());
+}
+
+#[no_mangle]
+pub extern "C" fn counter_proxy() {
+    let counter_contract = ContractRef::Hash(
+        runtime::get_arg(0)
+            .unwrap_or_revert_with(ApiError::MissingArgument)
+            .unwrap_or_revert_with(ApiError::InvalidArgument),
+    );
+    let method_name = runtime::get_arg::<String>(1)
+        .unwrap_or_revert_with(ApiError::MissingArgument)
+        .unwrap_or_revert_with(ApiError::InvalidArgument);
+
+    match method_name.as_ref() {
+        GET_METHOD => runtime::call_contract(counter_contract.clone(), (GET_METHOD,)),
+        INC_METHOD => runtime::call_contract(counter_contract.clone(), (INC_METHOD,)),
+        _ => runtime::revert(Error::UnknownMethodName),
+    };
+}
+
+#[no_mangle]
+pub extern "C" fn call() {
+    deploy_counter();
+    deploy_proxy();
 }
