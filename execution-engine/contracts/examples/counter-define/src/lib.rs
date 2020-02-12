@@ -66,23 +66,27 @@ fn deploy_counter() {
     let key_name = String::from(COUNT_KEY);
     counter_urefs.insert(key_name, counter_local_key.into());
 
-    let pointer = storage::store_function_at_hash(COUNTER_EXT, counter_urefs);
+    let pointer = storage::store_function(COUNTER_EXT, counter_urefs);
     runtime::put_key(COUNTER_KEY, pointer.into());
 }
 
 fn deploy_proxy() {
     // Create proxy instance.
-    let proxy_ref = storage::store_function_at_hash(COUNTER_PROXY_NAME, Default::default());
+    let proxy_ref = storage::store_function(COUNTER_PROXY_NAME, Default::default());
     runtime::put_key(COUNTER_PROXY_NAME, proxy_ref.into());
 }
 
 #[no_mangle]
 pub extern "C" fn counter_proxy() {
-    let counter_contract = ContractRef::Hash(
-        runtime::get_arg(0)
-            .unwrap_or_revert_with(ApiError::MissingArgument)
-            .unwrap_or_revert_with(ApiError::InvalidArgument),
-    );
+    let counter_uref = match runtime::get_arg::<Key>(0)
+        .unwrap_or_revert_with(ApiError::MissingArgument)
+        .unwrap_or_revert_with(ApiError::InvalidArgument)
+    {
+        Key::URef(uref) => uref,
+        _ => runtime::revert(ApiError::InvalidArgument),
+    };
+
+    let counter_contract = ContractRef::URef(counter_uref);
     let method_name = runtime::get_arg::<String>(1)
         .unwrap_or_revert_with(ApiError::MissingArgument)
         .unwrap_or_revert_with(ApiError::InvalidArgument);

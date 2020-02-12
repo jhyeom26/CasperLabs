@@ -1485,27 +1485,29 @@ fn counter_proxy() {
         _ => panic!("should get an account"),
     };
 
-    let counter_contract_hash = account
+    let counter_contract_uref = account
         .named_keys()
         .get("counter")
         .expect("should get counter key")
-        .as_hash()
-        .expect("should be hash");
+        .as_uref()
+        .cloned()
+        .expect("should be uref");
 
-    let counter_proxy_contract_hash = account
+    let counter_proxy_contract_uref = account
         .named_keys()
         .get("counter_proxy")
         .expect("should get counter key")
-        .as_hash()
-        .expect("should be hash");
+        .as_uref()
+        .cloned()
+        .expect("should be uref");
 
     let call_stored_1 = {
         let deploy = DeployItemBuilder::default()
             .with_address(DEFAULT_ACCOUNT_ADDR)
             .with_authorization_keys(&[*DEFAULT_ACCOUNT_KEY])
-            .with_stored_session_hash(
-                counter_proxy_contract_hash.to_vec(),
-                (counter_contract_hash, "inc"),
+            .with_stored_session_uref(
+                counter_proxy_contract_uref,
+                (Key::URef(counter_contract_uref), "inc"),
             )
             .with_payment_code(
                 &format!("{}.wasm", STANDARD_PAYMENT_CONTRACT_NAME),
@@ -1521,9 +1523,9 @@ fn counter_proxy() {
         let deploy = DeployItemBuilder::default()
             .with_address(DEFAULT_ACCOUNT_ADDR)
             .with_authorization_keys(&[*DEFAULT_ACCOUNT_KEY])
-            .with_stored_session_hash(
-                counter_proxy_contract_hash.to_vec(),
-                (counter_contract_hash, "inc"),
+            .with_stored_session_uref(
+                counter_proxy_contract_uref,
+                (Key::URef(counter_contract_uref), "inc"),
             )
             .with_payment_code(
                 &format!("{}.wasm", STANDARD_PAYMENT_CONTRACT_NAME),
