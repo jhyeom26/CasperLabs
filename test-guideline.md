@@ -26,7 +26,7 @@ casperlabs-client \
     --from $VALIDATOR_ID \
     --session $TEST_CONTRACT_DIR/counter_define.wasm \
     --payment $TEST_CONTRACT_DIR/standard_payment.wasm \
-    --payment-args '[{"name":"amount", "value": {"big_int": {"value":"100000000", "bit_width": 512}}}]' \
+    --payment-args '[{"name":"amount", "value": {"big_int": {"value":"10000000", "bit_width": 512}}}]' \
     --private-key $KEY_DIR/validator-private.pem
 ```
 
@@ -57,7 +57,7 @@ casperlabs-client \
     --session-hash "hash" \
     --session-args '[{"name": "method", "value": {"string_value": "inc"}}]'
     --payment $TEST_CONTRACT_DIR/standard_payment.wasm \
-    --payment-args '[{"name":"amount", "value": {"big_int": {"value":"100000000", "bit_width": 512}}}]' \
+    --payment-args '[{"name":"amount", "value": {"big_int": {"value":"10000000", "bit_width": 512}}}]' \
     --private-key $KEY_DIR/validator-private.pem
 ```
 
@@ -65,7 +65,7 @@ casperlabs-client \
 
 query balance
 ```console
-casperlabs-client --host localhost balance -b 'block hash' -a 'public key of the account'
+casperlabs-client --host localhost balance -b 'block hash' -a $VALIDATOR_ID
 ```
 
 ### Transfer from account to account

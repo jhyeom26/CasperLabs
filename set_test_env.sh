@@ -75,7 +75,7 @@ mkdir -p "$KEY_DIR"
 ./hack/key-management/docker-gen-keys.sh "$KEY_DIR"
 
 # create bond.txt
-(cat $KEY_DIR/validator-id; echo ",50000000000,1000000") > "$GENESIS_DIR/accounts.csv"
+(cat $KEY_DIR/validator-id; echo ",9000000000000000000000,1000000") > "$GENESIS_DIR/accounts.csv"
 
 VALIDATOR_ID="$(cat $KEY_DIR/validator-id-hex)"
 
